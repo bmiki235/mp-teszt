@@ -8,6 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400&family=Outfit:wght@200;300;400;500;600&display=swap" rel="stylesheet">
     <style>
+        /* Sötét mód (alapértelmezett) */
         :root {
             --bg-deep: #060C14;
             --bg-card: #0D1821;
@@ -24,6 +25,23 @@
             --border: rgba(255,255,255,0.06);
         }
 
+        /* Világos mód */
+        [data-theme="light"] {
+            --bg-deep: #F8FAFC;
+            --bg-card: #FFFFFF;
+            --bg-card-hover: #F1F5F9;
+            --accent-blue: #2563EB;
+            --accent-teal: #0891B2;
+            --accent-gold: #B8860B;
+            --hu-red: #CE2939;
+            --hu-white: #FFFFFF;
+            --hu-green: #477050;
+            --text-primary: #1E293B;
+            --text-secondary: #475569;
+            --text-muted: #94A3B8;
+            --border: rgba(0,0,0,0.08);
+        }
+
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         html {
@@ -38,6 +56,32 @@
             color: var(--text-primary);
             overflow-x: hidden;
             -webkit-font-smoothing: antialiased;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        /* Világos mód specifikus stílusok */
+        [data-theme="light"] #river-bg {
+            opacity: 0.2;
+        }
+
+        [data-theme="light"] .hero-image-frame img {
+            filter: grayscale(10%) contrast(1.02);
+        }
+
+        [data-theme="light"] .hero-image-frame:hover img {
+            filter: grayscale(0%) contrast(1.05);
+        }
+
+        [data-theme="light"] .hero-image-frame::after {
+            background: linear-gradient(to top, rgba(248,250,252,0.8), transparent);
+        }
+
+        [data-theme="light"] .policy-card {
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        [data-theme="light"] .policy-card:hover {
+            box-shadow: 0 10px 40px rgba(0,0,0,0.08);
         }
 
         /* === PRELOADER === */
@@ -152,6 +196,66 @@
         }
         .nav-links a:hover { color: var(--text-primary); }
         .nav-links a:hover::after { width: 100%; }
+
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+        }
+
+        /* Téma váltó gomb */
+        .theme-toggle {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .theme-toggle:hover {
+            border-color: var(--accent-blue);
+            color: var(--accent-blue);
+            transform: rotate(20deg);
+        }
+
+        .theme-toggle svg {
+            width: 18px;
+            height: 18px;
+            transition: all 0.3s ease;
+        }
+
+        .theme-icon {
+            position: absolute;
+            transition: all 0.3s ease;
+        }
+
+        .theme-icon.sun {
+            opacity: 0;
+            transform: rotate(-90deg) scale(0.5);
+        }
+
+        .theme-icon.moon {
+            opacity: 1;
+            transform: rotate(0deg) scale(1);
+        }
+
+        [data-theme="light"] .theme-icon.sun {
+            opacity: 1;
+            transform: rotate(0deg) scale(1);
+        }
+
+        [data-theme="light"] .theme-icon.moon {
+            opacity: 0;
+            transform: rotate(90deg) scale(0.5);
+        }
 
         /* === HUNGARIAN FLAG STRIPE === */
         .hu-stripe {
@@ -757,6 +861,7 @@
             }
             .stat-item:nth-child(2) { border-right: none; }
             nav { padding: 1rem 2rem; }
+            .nav-right { gap: 1.5rem; }
             .about, .leader, .policies { padding: 5rem 3rem; }
         }
         @media (max-width: 640px) {
@@ -768,6 +873,14 @@
             .stat-item { border-right: none; border-bottom: 1px solid var(--border); }
             .stat-item:last-child { border-bottom: none; }
             .nav-links { display: none; }
+            .theme-toggle {
+                width: 36px;
+                height: 36px;
+            }
+            .theme-toggle svg {
+                width: 16px;
+                height: 16px;
+            }
             footer {
                 flex-direction: column;
                 gap: 1.5rem;
@@ -801,12 +914,30 @@
             <img src="https://upload.wikimedia.org/wikipedia/commons/a/a0/TISZA_2024.svg" alt="TISZA logó" onerror="this.style.display='none'">
             <span class="nav-brand">TISZA</span>
         </div>
-        <ul class="nav-links">
-            <li><a href="#about">A pártról</a></li>
-            <li><a href="#logo">Identitás</a></li>
-            <li><a href="#leader">Elnök</a></li>
-            <li><a href="#policies">Program</a></li>
-        </ul>
+        <div class="nav-right">
+            <ul class="nav-links">
+                <li><a href="#about">A pártról</a></li>
+                <li><a href="#logo">Identitás</a></li>
+                <li><a href="#leader">Elnök</a></li>
+                <li><a href="#policies">Program</a></li>
+            </ul>
+            <button class="theme-toggle" id="themeToggle" aria-label="Téma váltás">
+                <svg class="theme-icon sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="5"></circle>
+                    <line x1="12" y1="1" x2="12" y2="3"></line>
+                    <line x1="12" y1="21" x2="12" y2="23"></line>
+                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                    <line x1="1" y1="12" x2="3" y2="12"></line>
+                    <line x1="21" y1="12" x2="23" y2="12"></line>
+                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                </svg>
+                <svg class="theme-icon moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                </svg>
+            </button>
+        </div>
     </nav>
 
     <!-- Hero Section -->
@@ -830,9 +961,9 @@
                 <div class="hero-image-accent"></div>
                 <div class="hero-image-accent-2"></div>
                 <div class="hero-image-frame">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Magyar_P%C3%A9ter%2C_Si%C3%B3fok_%282024.03.27.%29.jpg/800px-Magyar_P%C3%A9ter%2C_Si%C3%B3fok_%282024.03.27.%29.jpg"
+                    <img src="images/magyar-peter.jpg"
                          alt="Magyar Péter"
-                         onerror="this.parentElement.innerHTML='<div style=&quot;width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#0D1821,#1a2a3a);font-family:Cormorant Garamond,serif;font-size:5rem;color:#3B82F6;font-weight:300&quot;>MP</div>'">
+                         onerror="this.src='https://ui-avatars.com/api/?name=Magyar+Peter&size=800&background=0D1821&color=3B82F6&font-size=0.3&bold=true&format=svg'">
                     <div class="hero-image-caption">
                         Magyar Péter
                         <small>A TISZA Párt elnöke</small>
@@ -1023,6 +1154,37 @@
     </footer>
 
     <script>
+        /**
+         * Téma kezelő
+         * Világos/sötét mód váltása és mentése localStorage-ba
+         */
+        const themeToggle = document.getElementById('themeToggle');
+        const htmlElement = document.documentElement;
+
+        // Mentett téma betöltése vagy rendszer preferencia használata
+        const savedTheme = localStorage.getItem('theme');
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const currentTheme = savedTheme || (prefersDark ? 'dark' : 'light');
+
+        // Kezdeti téma beállítása
+        if (currentTheme === 'light') {
+            htmlElement.setAttribute('data-theme', 'light');
+        }
+
+        // Téma váltás eseménykezelő
+        themeToggle.addEventListener('click', () => {
+            const currentTheme = htmlElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+
+            if (newTheme === 'light') {
+                htmlElement.setAttribute('data-theme', 'light');
+                localStorage.setItem('theme', 'light');
+            } else {
+                htmlElement.removeAttribute('data-theme');
+                localStorage.setItem('theme', 'dark');
+            }
+        });
+
         // === Preloader ===
         window.addEventListener('load', () => {
             setTimeout(() => {
