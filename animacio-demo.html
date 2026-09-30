@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Animációs bemutató</title>
+<style>
+  :root { --bg: #0b0b12; --card: #14141f; --line: #262636; --text: #ececf4; --muted: #9a9ab0; --a: #d97757; --b: #7aa2ff; --c: #6fe3c1; }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--bg); color: var(--text); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; overflow-x: hidden; }
+  .hero { position: relative; height: min(72vh, 600px); }
+  #hero { position: absolute; inset: 0; width: 100%; height: 100%; cursor: crosshair; touch-action: pan-y; }
+  .hero p { position: absolute; inset: auto 16px 20px; text-align: center; color: var(--muted); font-size: 14px; pointer-events: none; }
+  main { max-width: 1100px; margin: 0 auto; padding: 0 16px 80px; display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+  .stage { height: 260px; position: relative; display: grid; place-items: center; overflow: hidden; border-bottom: 1px solid var(--line); }
+  .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
+  .card h2 { font-size: 15px; padding: 14px 16px 2px; }
+  .card p { font-size: 13px; color: var(--muted); padding: 0 16px 16px; }
+  /* 3D kockák: tisztán CSS transzformációk */
+  .scene { perspective: 700px; }
+  .cube { --s: 120px; grid-area: 1 / 1; width: var(--s); height: var(--s); position: relative; transform-style: preserve-3d; animation: spin 10s linear infinite; }
+  .cube.inner { --s: 50px; animation-duration: 6s; animation-direction: reverse; }
+  .cube div { position: absolute; inset: 0; transform: var(--r) translateZ(calc(var(--s) / 2)); border: 1.5px solid var(--a); background: rgb(217 119 87 / .1); box-shadow: inset 0 0 24px rgb(217 119 87 / .35); }
+  .cube.inner div { border-color: var(--b); background: rgb(122 162 255 / .2); box-shadow: none; }
+  @keyframes spin { to { transform: rotateX(360deg) rotateY(720deg) rotateZ(360deg); } }
+  /* Folyékony „gooey” blobok: elmosás + kontraszt SVG-szűrő */
+  .goo { filter: url(#goo); width: 220px; height: 220px; position: relative; }
+  .goo i { position: absolute; left: 50%; top: 50%; width: 58px; height: 58px; margin: -29px; border-radius: 50%; background: hsl(calc(150 + var(--i) * 28) 75% 62%);
+           animation: orbit 4.2s ease-in-out infinite; animation-delay: calc(var(--i) * -.7s); }
+  @keyframes orbit { 0%, 100% { transform: rotate(calc(var(--i) * 60deg)) translateX(0) scale(1.1); } 50% { transform: rotate(calc(var(--i) * 60deg + 180deg)) translateX(72px) scale(.8); } }
+  .wave { display: grid; grid-template-columns: repeat(12, 1fr); gap: 7px; width: 230px; cursor: pointer; touch-action: none; }
+  .wave span { aspect-ratio: 1; border-radius: 50%; background: #34344d; }
+  svg.spiro { width: 230px; height: 230px; overflow: visible; }
+  .controls { position: fixed; right: 16px; bottom: 16px; display: flex; gap: 8px; align-items: center; background: rgb(20 20 31 / .85); border: 1px solid var(--line);
+              border-radius: 999px; padding: 6px 6px 6px 14px; backdrop-filter: blur(8px); font-size: 13px; }
+  .controls button { font: inherit; color: var(--bg); background: var(--c); border: 0; border-radius: 999px; padding: 6px 14px; cursor: pointer; }
+  #fps { color: var(--muted); font-variant-numeric: tabular-nums; min-width: 52px; }
+</style>
+</head>
+<body>
+<header class="hero">
+  <canvas id="hero" aria-label="Részecskékből kirajzolódó feliratok"></canvas>
+  <p>Húzd az egeret a betűk fölé · kattints a szétrobbantáshoz · a szavak maguktól is átalakulnak</p>
+</header>
+
+<main>
+  <article class="card"><div class="stage"><canvas id="rope"></canvas></div>
+    <h2>Verlet-kötél</h2><p>24 pont, távolság-kényszerek és gravitáció. Mozgasd a kurzort (vagy az ujjad) a mezőben: a kötél feje követi.</p></article>
+  <article class="card"><div class="stage"><canvas id="harmono"></canvas></div>
+    <h2>Harmonográf</h2><p>Négy csillapodó szinuszhullám rajzol, amíg el nem fogy a lendület. Kattints egy új, véletlen mintáért.</p></article>
+  <article class="card"><div class="stage"><svg class="spiro" viewBox="0 0 200 200" aria-hidden="true">
+      <defs><linearGradient id="grad" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#d97757"/><stop offset="1" stop-color="#7aa2ff"/></linearGradient></defs>
+      <path fill="none" stroke="url(#grad)" stroke-width="1.6" stroke-linecap="round"/><circle r="4" fill="#fff"/></svg></div>
+    <h2>SVG útvonal-rajzolás</h2><p>Matematikailag generált spirográf-görbe; a <code>stroke-dashoffset</code> és a pont helye ugyanabból az időből számolódik.</p></article>
+  <article class="card"><div class="stage scene">
+      <div class="cube"><div style="--r:rotateY(0deg)"></div><div style="--r:rotateY(90deg)"></div><div style="--r:rotateY(180deg)"></div><div style="--r:rotateY(-90deg)"></div><div style="--r:rotateX(90deg)"></div><div style="--r:rotateX(-90deg)"></div></div>
+      <div class="cube inner"><div style="--r:rotateY(0deg)"></div><div style="--r:rotateY(90deg)"></div><div style="--r:rotateY(180deg)"></div><div style="--r:rotateY(-90deg)"></div><div style="--r:rotateX(90deg)"></div><div style="--r:rotateX(-90deg)"></div></div></div>
+    <h2>3D CSS kockák</h2><p>Egymásba ágyazott, ellentétes irányba forgó kockák – egyetlen sor JavaScript nélkül, csak <code>preserve-3d</code>.</p></article>
+  <article class="card"><div class="stage"><div class="goo"><i style="--i:0"></i><i style="--i:1"></i><i style="--i:2"></i><i style="--i:3"></i><i style="--i:4"></i><i style="--i:5"></i></div></div>
+    <h2>Folyékony blobok</h2><p>Hat kör kering; egy elmosás + kontraszt SVG-szűrő miatt folyadékként olvadnak össze, amikor közel érnek egymáshoz.</p></article>
+  <article class="card"><div class="stage"><div class="wave" id="wave"></div></div>
+    <h2>Hullám-rács</h2><p>Web Animations API: minden pont késleltetése a hullám kiindulópontjától mért távolságától függ. Kattints bárhová a rácson.</p></article>
+</main>
+
+<div class="controls"><span id="fps">– fps</span><button id="toggle" type="button">Szünet</button></div>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <filter id="goo"><feGaussianBlur in="SourceGraphic" stdDeviation="10"/><feColorMatrix values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -9"/></filter>
+</svg>
+
+<script>
+  // Közös állapot: a regisztrált demók listája és a szüneteltetés jelzője
+  const demos = [];
+  let paused = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  /** A canvast a megjelenített méretére és a kijelző pixelsűrűségére igazítja. @param {HTMLCanvasElement} canvas @returns {{ctx: CanvasRenderingContext2D, w: number, h: number}} */
+  function fitCanvas(canvas) {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2), rect = canvas.getBoundingClientRect();
+    canvas.width = Math.round(rect.width * dpr);
+    canvas.height = Math.round(rect.height * dpr);
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return { ctx, w: rect.width, h: rect.height };
+  }
+  /** Demót vesz fel a közös ciklusba; csak akkor fut, ha látszik. @param {Element} element @param {(time: number) => void} step - képkockánként hívott frissítés */
+  function register(element, step) {
+    const demo = { visible: true, step };
+    new IntersectionObserver(([entry]) => { demo.visible = entry.isIntersecting; }).observe(element);
+    demos.push(demo);
+  }
+  /** Követi az egér/érintés helyét az elem saját koordinátáiban. @param {HTMLElement} element @returns {{x: number, y: number, active: boolean}} */
+  function trackPointer(element) {
+    const pointer = { x: 0, y: 0, active: false };
+    const update = (event) => {
+      const rect = element.getBoundingClientRect();
+      Object.assign(pointer, { x: event.clientX - rect.left, y: event.clientY - rect.top, active: true });
+    };
+    element.addEventListener('pointermove', update);
+    element.addEventListener('pointerdown', update);
+    element.addEventListener('pointerleave', () => { pointer.active = false; });
+    return pointer;
+  }
+  /** Hős szekció: a betűk pixeleihez rugóval húzott részecskék, amelyek kitérnek a kurzor elől. @param {HTMLCanvasElement} canvas */
+  function initHero(canvas) {
+    const words = ['Claude', 'Animáció', 'Fizika', 'Ritmus'], pointer = trackPointer(canvas);
+    let view = fitCanvas(canvas), particles = [], wordIndex = 0, nextSwitch = 4, gradient;
+    /** Egy szót láthatatlan canvasra rajzol, és a kitöltött pixeleit célpontként kiosztja a részecskéknek. @param {string} word */
+    function setWord(word) {
+      const { w, h } = view, offscreen = document.createElement('canvas');
+      offscreen.width = Math.floor(w); offscreen.height = Math.floor(h);
+      const octx = offscreen.getContext('2d', { willReadFrequently: true });
+      octx.font = '800 100px system-ui, sans-serif';
+      const size = Math.min(h * 0.42, 100 * (w * 0.86) / octx.measureText(word).width); // a szó kitölti a szélesség ~86%-át
+      octx.font = `800 ${size}px system-ui, sans-serif`;
+      octx.textAlign = 'center'; octx.textBaseline = 'middle';
+      octx.fillText(word, w / 2, h * 0.46);
+      const pixels = octx.getImageData(0, 0, offscreen.width, offscreen.height).data, gap = Math.max(3, Math.round(w / 240)), targets = [];
+      for (let y = 0; y < offscreen.height; y += gap) {
+        for (let x = 0; x < offscreen.width; x += gap) if (pixels[(y * offscreen.width + x) * 4 + 3] > 128) targets.push([x, y]);
+      }
+      // Új részecske csak akkor születik, ha a szónak több pontja van, mint ahány részecske már létezik
+      while (particles.length < targets.length) particles.push({ x: Math.random() * w, y: Math.random() * h, vx: 0, vy: 0 });
+      particles.forEach((p, i) => { [p.hx, p.hy] = targets[i % targets.length]; });
+      view.gap = gap;
+      gradient = view.ctx.createLinearGradient(0, 0, w, 0);
+      gradient.addColorStop(0, '#d97757'); gradient.addColorStop(0.5, '#f0c6a8'); gradient.addColorStop(1, '#7aa2ff');
+    }
+    new ResizeObserver(() => { view = fitCanvas(canvas); setWord(words[wordIndex]); }).observe(canvas);
+    canvas.addEventListener('pointerdown', () => {
+      for (const p of particles) { p.vx += (Math.random() - 0.5) * 50; p.vy += (Math.random() - 0.5) * 50; }
+    });
+    register(canvas, (time) => {
+      if (time > nextSwitch) { wordIndex = (wordIndex + 1) % words.length; setWord(words[wordIndex]); nextSwitch = time + 4; }
+      const { ctx, w, h, gap } = view, radius = 90;
+      ctx.fillStyle = 'rgb(11 11 18 / .35)'; // részleges törlés: az előző képkocka halvány csíkot hagy
+      ctx.fillRect(0, 0, w, h);
+      ctx.beginPath();
+      for (const p of particles) {
+        let ax = (p.hx + Math.sin(time * 2 + p.hy * 0.05) * 1.5 - p.x) * 0.018, ay = (p.hy - p.y) * 0.018;
+        if (pointer.active) {
+          const dx = p.x - pointer.x, dy = p.y - pointer.y, dist = Math.hypot(dx, dy) || 1;
+          if (dist < radius) { const force = (1 - dist / radius) * 4; ax += dx / dist * force; ay += dy / dist * force; }
+        }
+        p.vx = (p.vx + ax) * 0.87; p.vy = (p.vy + ay) * 0.87; // csillapítás: e nélkül örökké rezegnének
+        p.x += p.vx; p.y += p.vy;
+        ctx.rect(p.x, p.y, gap * 0.72, gap * 0.72);
+      }
+      ctx.fillStyle = gradient;
+      ctx.fill(); // egyetlen rajzolási hívás az összes részecskére – ettől gyors
+    });
+  }
+  /** Verlet-kötél, amelynek feje a kurzort, tétlenül egy Lissajous-pályát követ. @param {HTMLCanvasElement} canvas */
+  function initRope(canvas) {
+    const pointer = trackPointer(canvas), count = 24, segment = 7;
+    let view = fitCanvas(canvas);
+    new ResizeObserver(() => { view = fitCanvas(canvas); }).observe(canvas);
+    const points = Array.from({ length: count }, (_, i) => ({ x: 150, y: 30 + i * segment, px: 150, py: 30 + i * segment }));
+    register(canvas, (time) => {
+      const { ctx, w, h } = view, head = points[0];
+      head.x = pointer.active ? pointer.x : w / 2 + Math.sin(time * 1.3) * w * 0.3;
+      head.y = pointer.active ? pointer.y : h * 0.22 + Math.sin(time * 2.1) * h * 0.12;
+      for (let i = 1; i < count; i++) { // Verlet-lépés: a sebesség az előző és a mostani pozíció különbsége
+        const p = points[i], vx = (p.x - p.px) * 0.985, vy = (p.y - p.py) * 0.985;
+        p.px = p.x; p.py = p.y; p.x += vx; p.y += vy + 0.35;
+      }
+      for (let iteration = 0; iteration < 8; iteration++) { // kényszer-feloldás: minden szakasz visszaáll a saját hosszára
+        for (let i = 1; i < count; i++) {
+          const a = points[i - 1], b = points[i], dx = b.x - a.x, dy = b.y - a.y, dist = Math.hypot(dx, dy) || 1, diff = (dist - segment) / dist;
+          const share = i === 1 ? 1 : 0.5; // a fej rögzített, ezért az első szakaszt teljesen a második pont korrigálja
+          b.x -= dx * diff * share; b.y -= dy * diff * share;
+          if (i > 1) { a.x += dx * diff * 0.5; a.y += dy * diff * 0.5; }
+        }
+      }
+      ctx.clearRect(0, 0, w, h);
+      ctx.lineCap = 'round'; ctx.strokeStyle = '#7aa2ff';
+      for (let i = 1; i < count; i++) {
+        ctx.lineWidth = 7 * (1 - i / count) + 1.5;
+        ctx.beginPath(); ctx.moveTo(points[i - 1].x, points[i - 1].y); ctx.lineTo(points[i].x, points[i].y); ctx.stroke();
+      }
+      const tail = points[count - 1];
+      ctx.shadowColor = ctx.fillStyle = '#d97757'; ctx.shadowBlur = 20;
+      ctx.beginPath(); ctx.arc(tail.x, tail.y, 11, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0;
+    });
+  }
+  /** Harmonográf: tengelyenként két csillapodó szinusz összege rajzolja a görbét. @param {HTMLCanvasElement} canvas */
+  function initHarmonograph(canvas) {
+    let view = fitCanvas(canvas), params, progress = 0, last = null;
+    /** Új, véletlen frekvenciákkal és fázisokkal indítja újra a rajzolást. */
+    function reset() {
+      const freq = () => Math.ceil(Math.random() * 4) + (Math.random() - 0.5) * 0.03; // az apró elhangolás adja a „lebegő” mintát
+      const phase = () => Math.random() * Math.PI * 2;
+      params = { f: [freq(), freq(), freq(), freq()], p: [phase(), phase(), phase(), phase()], decay: 0.008 + Math.random() * 0.006, hue: Math.random() * 360 };
+      progress = 0; last = null;
+      view.ctx.clearRect(0, 0, view.w, view.h);
+    }
+    /** A görbe pontja adott paraméterértéknél. @param {number} s - a görbe „ideje” @returns {number[]} [x, y] */
+    function pointAt(s) {
+      const { f, p, decay } = params, amp = Math.min(view.w, view.h) * 0.22 * Math.exp(-decay * s);
+      return [view.w / 2 + amp * (Math.sin(f[0] * s + p[0]) + Math.sin(f[1] * s + p[1])), view.h / 2 + amp * (Math.sin(f[2] * s + p[2]) + Math.sin(f[3] * s + p[3]))];
+    }
+    new ResizeObserver(() => { view = fitCanvas(canvas); reset(); }).observe(canvas);
+    canvas.addEventListener('pointerdown', reset);
+    reset();
+    register(canvas, () => {
+      const { ctx } = view;
+      ctx.lineWidth = 1.1;
+      for (let k = 0; k < 10; k++) {
+        progress += 0.04;
+        const point = pointAt(progress);
+        if (last) {
+          ctx.strokeStyle = `hsl(${(params.hue + progress * 1.5) % 360} 80% 66% / .85)`;
+          ctx.beginPath(); ctx.moveTo(last[0], last[1]); ctx.lineTo(point[0], point[1]); ctx.stroke();
+        }
+        last = point;
+      }
+      if (Math.exp(-params.decay * progress) < 0.04) reset();
+    });
+  }
+  /** Spirográf-görbét (hipotrochoidot) generál, majd szinkronban kirajzolja és egy ponttal követi. @param {SVGSVGElement} svg */
+  function initSpiro(svg) {
+    const path = svg.querySelector('path'), dot = svg.querySelector('circle');
+    const bigR = 8, smallR = 5, pen = 5, scale = 11, steps = 1400, commands = [];
+    for (let i = 0; i <= steps; i++) {
+      const t = (i / steps) * Math.PI * 2 * smallR, k = (bigR - smallR) / smallR;
+      const x = (bigR - smallR) * Math.cos(t) + pen * Math.cos(k * t), y = (bigR - smallR) * Math.sin(t) - pen * Math.sin(k * t);
+      commands.push(`${i ? 'L' : 'M'}${(100 + x * scale).toFixed(2)} ${(100 + y * scale).toFixed(2)}`);
+    }
+    path.setAttribute('d', commands.join(''));
+    const length = path.getTotalLength();
+    path.style.strokeDasharray = length;
+    register(svg, (time) => {
+      const eased = 0.5 - 0.5 * Math.cos(time * 0.55); // 0 → 1 → 0, a végeken lassulva
+      path.style.strokeDashoffset = length * (1 - eased);
+      const tip = path.getPointAtLength(length * eased);
+      dot.setAttribute('cx', tip.x); dot.setAttribute('cy', tip.y);
+    });
+  }
+  /** Pontrács, amelyen Web Animations API-val, távolság szerint késleltetett hullámok futnak. @param {HTMLElement} grid */
+  function initWave(grid) {
+    const columns = 12, dots = [];
+    for (let i = 0; i < columns * columns; i++) {
+      const element = document.createElement('span');
+      grid.append(element);
+      dots.push({ element, x: i % columns, y: Math.floor(i / columns) });
+    }
+    /** Hullámot indít a rács egy pontjából. @param {number} originX - oszlop (lehet tört) @param {number} originY - sor (lehet tört) */
+    function ripple(originX, originY) {
+      const hue = Math.random() * 360;
+      for (const dot of dots) {
+        const distance = Math.hypot(dot.x - originX, dot.y - originY);
+        dot.element.animate(
+          [{ transform: 'scale(1)' }, { transform: 'scale(1.9)', background: `hsl(${hue + distance * 12} 80% 65%)` }, { transform: 'scale(1)' }],
+          { duration: 900, delay: distance * 55, easing: 'cubic-bezier(.2, .8, .3, 1)' }
+        );
+      }
+    }
+    grid.addEventListener('pointerdown', (event) => {
+      const rect = grid.getBoundingClientRect();
+      ripple((event.clientX - rect.left) / rect.width * columns - 0.5, (event.clientY - rect.top) / rect.height * columns - 0.5);
+    });
+    let nextRipple = 0.5;
+    register(grid, (time) => {
+      if (time > nextRipple) { nextRipple = time + 3.2; ripple(Math.random() * columns, Math.random() * columns); }
+    });
+  }
+  /** Szünet/lejátszás: a JS-ciklus mellett az összes futó CSS- és WAAPI-animációt is megállítja. */
+  function togglePause() {
+    paused = !paused;
+    document.getElementById('toggle').textContent = paused ? 'Lejátszás' : 'Szünet';
+    for (const animation of document.getAnimations()) {
+      if (paused && animation.playState === 'running') animation.pause();
+      else if (!paused && animation.playState === 'paused') animation.play();
+    }
+  }
+  let lastFrame = performance.now(), elapsed = 0, frameCount = 0, fpsClock = 0;
+  const fpsLabel = document.getElementById('fps');
+  /** Közös requestAnimationFrame-ciklus: időt léptet, futtatja a látható demókat, méri az fps-t. @param {number} now - időbélyeg (ms) */
+  function loop(now) {
+    const rawDelta = now - lastFrame;
+    lastFrame = now;
+    if (!paused) {
+      elapsed += Math.min(rawDelta / 1000, 0.05); // hosszabb kihagyás (pl. háttérfül) után se ugorjon nagyot
+      for (const demo of demos) if (demo.visible) demo.step(elapsed);
+    }
+    frameCount++; fpsClock += rawDelta;
+    if (fpsClock >= 500) { fpsLabel.textContent = `${Math.round(frameCount * 1000 / fpsClock)} fps`; frameCount = 0; fpsClock = 0; }
+    requestAnimationFrame(loop);
+  }
+  initHero(document.getElementById('hero'));
+  initRope(document.getElementById('rope'));
+  initHarmonograph(document.getElementById('harmono'));
+  initSpiro(document.querySelector('svg.spiro'));
+  initWave(document.getElementById('wave'));
+  document.getElementById('toggle').addEventListener('click', togglePause);
+  if (paused) { paused = false; togglePause(); } // csökkentett mozgás beállításnál szüneteltetve indul
+  requestAnimationFrame(loop);</script>
+</body>
+</html>
